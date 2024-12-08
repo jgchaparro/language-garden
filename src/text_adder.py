@@ -15,7 +15,7 @@ class TextAdder:
              url: str,
              author: str = 'Unknown',
              year: int = -1,
-             variety: int = 0,
+             variety_id: int = 0,
              replace: bool = False):
         """
         Adds a source and text to the database.
@@ -29,7 +29,7 @@ class TextAdder:
             print(f"Source with ID {source_id} deleted.")
 
         # Add source
-        self.add_source(url, author, year, variety)
+        self.add_source(url, author, year, variety_id)
 
         # Add text
         self.add_text(text_df, self.source_id)
