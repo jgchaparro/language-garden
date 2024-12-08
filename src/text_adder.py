@@ -16,7 +16,9 @@ class TextAdder:
              author: str = 'Unknown',
              year: int = -1,
              variety_id: int = 0,
-             replace: bool = False):
+             replace: bool = False,
+             source_id: int = None,
+             check_repeat: bool = True):
         """
         Adds a source and text to the database.
         """
@@ -29,10 +31,16 @@ class TextAdder:
             print(f"Source with ID {source_id} deleted.")
 
         # Add source
-        self.add_source(url, author, year, variety_id)
+        if source_id is not None:
+            self.source_id = source_id
+        else:
+            self.add_source(url, author, year, variety_id, 
+                        check_repeat = check_repeat)
 
         # Add text
-        self.add_text(text_df, self.source_id)
+        self.add_text(text_df, 
+                      source_id = self.source_id,
+                      check_repeat = check_repeat)
 
     def delete_source_and_texts(self,
                                 source_id: 1):
@@ -56,20 +64,22 @@ class TextAdder:
                    author: str,
                    year: int,
                    variety_id: int,
-                   replace: bool = False):
+                   replace: bool = False,
+                   check_repeat: bool = True):
         """
         Appends a new source to the database.
         """
         # Check if the source already exists
-        query = f"""
-        SELECT * FROM sources
-        WHERE url = '{url}'
-        LIMIT 1;
-        """
-        source_exists = self.query(query)
-        if source_exists is not None:
-            print("Source already exists.")
-            raise ValueError("Source already exists. Please, use the 'replace' parameter to update the source.")
+        if check_repeat:
+            query = f"""
+            SELECT * FROM sources
+            WHERE url = '{url}'
+            LIMIT 1;
+            """
+            source_exists = self.query(query)
+            if source_exists is not None:
+                print("Source already exists.")
+                raise ValueError("Source already exists. Please, use the 'replace' parameter to update the source.")
     
         # Replace source if it already exists
         if replace and source_exists:
@@ -105,8 +115,8 @@ class TextAdder:
 
     def add_text(self, 
                  text_df: pd.DataFrame, 
-                 origin: str,
-                 source_id: int = None):
+                 source_id: int = None,
+                 check_repeat: bool = True):
         """
         Appends a new sentence batch to the database.
         """
@@ -115,31 +125,34 @@ class TextAdder:
             source_id = self.source_id
         
         # Check that there are no texts from the same source
-        query = f"""
-        SELECT * FROM texts
-        WHERE source_id = '{origin}'
-        LIMIT 1;
-        """
-        text_exists = self.query(query)
-        if text_exists:
-            print("Text already exists.")
-            raise ValueError("Text already exists. Please, use the 'replace' parameter to update the text.")
+        if check_repeat:
+            query = f"""
+            SELECT * FROM texts
+            WHERE source_id = '{source_id}'
+            LIMIT 1;
+            """
+            text_exists = self.query(query)
+            if text_exists is not None:
+                print("Text already exists.")
+                raise ValueError("Text already exists. Please, use the 'replace' parameter to update the text.")
         
         # Extract maximum text ID
         query = f"""
         SELECT MAX(text_id) FROM texts;
         """
         max_text_id = self.query(query).values[0][0]
+        if max_text_id is None:
+            max_text_id = 0
 
         # Format
         temp_df = text_df.copy()
-        temp_df['source_id'] = origin
+        temp_df['source_id'] = source_id
         temp_df['text_id'] = range(max_text_id + 1, max_text_id + 1 + len(temp_df))
 
         # Push to database
         temp_df.to_sql('texts', self.conn, if_exists = 'append', index = False)
 
-        print(f"Text from '{origin}' added to the database.")         
+        print(f"Text from '{source_id}' added to the database.")         
     
     def query(self, 
               query: str):
